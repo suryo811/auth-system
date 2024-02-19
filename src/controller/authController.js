@@ -6,19 +6,26 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const register = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, username } = req.body;
 
-    if (!email || !password) {
-        throw new AppError('email and password is required',)
+    if (!email || !password || !username) {
+        throw new AppError('email, password and username is required',)
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
     const user = await prisma.user.create({
         data: {
+            username,
             email,
             password: hashedPassword
-        }
+        },
+        select: {
+            id: true,
+            username: true,
+            email: true,
+            createdAt: true,
+        },
     })
 
     res.status(201).json({ user })
@@ -32,7 +39,7 @@ const login = asyncHandler(async (req, res) => {
     }
 
     const user = await prisma.user.findUnique({
-        where: { email }
+        where: { email },
     });
 
     if (!user) {
@@ -45,9 +52,8 @@ const login = asyncHandler(async (req, res) => {
         throw new AppError('Invalid Credentials', 401)
     }
 
-    res.status(200).json({ msg: "Login Successful!" })
-
-
+    const { password: _, ...userData } = user;
+    res.status(200).json({ msg: "Login Successful!", user: userData })
 })
 
 
