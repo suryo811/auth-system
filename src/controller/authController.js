@@ -2,6 +2,7 @@ import asyncHandler from "../utils/asyncHandler.js"
 import AppError from "../utils/appError.js"
 import bcrypt from 'bcrypt'
 import { PrismaClient } from "@prisma/client";
+import { generateAccessToken, generateRefreshToken } from "../utils/generateToken.js";
 
 const prisma = new PrismaClient();
 
@@ -28,7 +29,34 @@ const register = asyncHandler(async (req, res) => {
         },
     })
 
-    res.status(201).json({ user })
+    const tokenUser = { username: user.username, userId: user.id, role: user.role }
+    const accessToken = generateAccessToken(tokenUser)
+    const refreshToken = generateRefreshToken({ userId: user.id })
+
+    await prisma.token.create({
+        data: {
+            refreshToken,
+            user: {
+                connect: { id: user.id }
+            }
+        }
+    })
+
+    res
+        .status(201)
+        .cookie('accessToken', accessToken, {
+            httpOnly: true,
+            maxAge: 900000, // 15 minutes in milliseconds
+            secure: false,
+        })
+        .cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+            secure: false,
+            path: '/api/auth'
+        })
+        .json({ user })
+
 })
 
 const login = asyncHandler(async (req, res) => {
