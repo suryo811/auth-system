@@ -1,12 +1,11 @@
 import jwt from 'jsonwebtoken'
-import config from 'config'
 
 const generateAccessToken = (userObj) => {
-    return jwt.sign(userObj, config.get("access_token.secret"), { expiresIn: config.get("access_token.exp") });
+    return jwt.sign(userObj, process.env.ACCESS_TOKEN_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXP });
 }
 
 const generateRefreshToken = (userObj) => {
-    return jwt.sign(userObj, config.get("refresh_token.secret"), { expiresIn: config.get("refresh_token.exp") });
+    return jwt.sign(userObj, process.env.REFRESH_TOKEN_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXP });
 }
 
 
