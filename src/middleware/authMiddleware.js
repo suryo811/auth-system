@@ -30,3 +30,5 @@ const verifyAccessToken = asyncHandler(async (req, res, next) => {
     }
 })
 
+export { verifyAccessToken }
+

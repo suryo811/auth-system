@@ -3,6 +3,7 @@ import AppError from "../utils/appError.js"
 import bcrypt from 'bcrypt'
 import { PrismaClient } from "@prisma/client";
 import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js";
+import jwt from 'jsonwebtoken'
 
 const prisma = new PrismaClient();
 
@@ -86,6 +87,15 @@ const login = asyncHandler(async (req, res) => {
     const accessToken = generateAccessToken(tokenUser)
     const refreshToken = generateRefreshToken({ userId: user.id })
 
+    await prisma.token.update({
+        where: {
+            userId: user.id,
+        },
+        data: {
+            refreshToken
+        },
+    })
+
     const { password: _, ...userData } = user;
     res
         .status(201)
@@ -106,5 +116,63 @@ const login = asyncHandler(async (req, res) => {
 
 })
 
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const incomingRefreshToken = req.cookies.refreshToken;
 
-export { register, login }
+    if (!incomingRefreshToken) {
+        throw new AppError('Unauthorized Request', 401)
+    }
+
+    const { userId } = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+
+    const token = await prisma.token.findUnique({
+        where: { userId },
+        include: {
+            user: {
+                select: {
+                    username: true,
+                    id: true,
+                    role: true
+                }
+            }
+        }
+    });
+
+    if (!token) {
+        throw new AppError("Invalid Refresh Token", 401)
+    }
+
+    if (incomingRefreshToken !== token?.refreshToken) {
+        throw new AppError("Refresh token is expired or used", 401)
+    }
+
+    //refresh access token
+    const tokenUser = { username: token.user.username, userId: token.user.id, role: token.user.role }
+    const accessToken = generateAccessToken(tokenUser)
+
+    res.status(200)
+        .cookie('accessToken', accessToken, {
+            httpOnly: true,
+            maxAge: 24 * 60 * 60 * 1000, //1 day
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax'
+        })
+        .json({ msg: "succesfully generated access token", accessToken })
+
+})
+
+const logout = asyncHandler(async (req, res) => {
+    res.status(200)
+        .clearCookie('accessToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+        })
+        .clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+        })
+        .json({ msg: "user logged out.." })
+})
+
+
+export { register, login, refreshAccessToken, logout }
