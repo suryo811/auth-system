@@ -157,7 +157,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Lax'
         })
-        .json({ msg: "succesfully generated access token", accessToken })
+        .json({ msg: "succesfully refreshed access token" })
 
 })
 
